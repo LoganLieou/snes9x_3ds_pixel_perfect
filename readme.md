@@ -1,3 +1,9 @@
+## Pixel Perfect
+
+So essentially the goal of this project is to improve the scaling methods used by the current version of snes9x_3ds
+since the project seems to be discontinued I decided to fork it to work on this fix myself although this may take a
+while as I've never worked with an emulator before but it's a small fix there's no way it's gonna be that hard
+
 ## Snes9x for 3DS
 
 Snes9x for 3DS is a high-compatibility SNES emulator for your Old 3DS / 2DS. It runs many games at full speed (60 fps). It supports games that use CX4 chip (Megaman X2/X3), and the SDD-1 chip (Star Ocean, Super Street Fighter 2 Alpha). It can also play games that use the SuperFX chip (Yoshi's Island, etc), and the SA-1 chip (Super Mario RPG, Kirby's Dreamland, Kirby Super Star) but it runs slowly. It generally supports higher compatibility than existing SNES emulators on the old 3DS, because it uses Snes9x 1.43 as a base, and is a good alternative if your existing emulators cannot play all games.

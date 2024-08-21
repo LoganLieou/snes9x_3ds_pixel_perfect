@@ -488,9 +488,11 @@ void impl3dsRunOneFrame(bool firstFrame, bool skipDrawingFrame)
 
 	int sWidth = settings3DS.StretchWidth;
 	int sHeight = (settings3DS.StretchHeight == -1 ? PPU.ScreenHeight - 1 : settings3DS.StretchHeight);
-	if (sWidth == 04030000)
+
+    // These are for particular stretch settings
+	if (sWidth == 04030000) // stretch width only to 4:3
 		sWidth = sHeight * 4 / 3;
-	else if (sWidth == 01010000)
+	else if (sWidth == 01010000) // keep 1:1 ratio
 	{
 		if (PPU.ScreenHeight < SNES_HEIGHT_EXTENDED)
 		{
