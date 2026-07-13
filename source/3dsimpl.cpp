@@ -521,29 +521,31 @@ void impl3dsRunOneFrame(bool firstFrame, bool skipDrawingFrame)
 	t3dsEndTiming(3);
 
 	if (!firstFrame)
-	{
-		// ----------------------------------------------
-		// Wait for the rendering to the SNES
-		// main/sub screen for the previous frame
-		// to complete
-		//
-		t3dsStartTiming(5, "Transfer");
-		gpu3dsTransferToScreenBuffer();
-		gpu3dsSwapScreenBuffers();
-		t3dsEndTiming(5);
+	    {
+	        // ----------------------------------------------
+	        // Flush all draw commands of the current frame
+	        // to the GPU first, then wait.
+	        t3dsStartTiming(4, "Flush");
+	        gpu3dsFlush();
+	        gpu3dsWaitForPreviousFlush();
+	        t3dsEndTiming(4);
 
-	}
-	else
-	{
-		firstFrame = false;
-	}
-
-	// ----------------------------------------------
-	// Flush all draw commands of the current frame
-	// to the GPU.
-	t3dsStartTiming(4, "Flush");
-	gpu3dsFlush();
-	t3dsEndTiming(4);
+	        // ----------------------------------------------
+	        // Now transfer the rendered framebuffer to the
+	        // screen and swap.
+	        t3dsStartTiming(5, "Transfer");
+	        gpu3dsTransferToScreenBuffer();
+	        gpu3dsSwapScreenBuffers();
+	        t3dsEndTiming(5);
+	    }
+	    else
+	    {
+	        // First frame: just flush init commands.
+	        t3dsStartTiming(4, "Flush");
+	        gpu3dsFlush();
+	        t3dsEndTiming(4);
+	        firstFrame = false;
+	    }
 
 	t3dsEndTiming(1);
 

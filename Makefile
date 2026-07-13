@@ -29,7 +29,8 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	SNES9x for 3DS
 APP_DESCRIPTION	:=	SNES emulator for 3DS.
-APP_AUTHOR	:=	bubble2k16
+ORIGINAL_AUTHOR :=	bubble2k16
+APP_AUTHOR := loganj
 ASSETS		:=	assets
 ICON		:=	$(ASSETS)/icon.png
 
@@ -51,7 +52,11 @@ CFLAGS	:=	-g -w -O3 -mword-relocations -finline-limit=20000 \
 			-fomit-frame-pointer -ffunction-sections \
 			$(ARCH)
 
-CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DLIBCTRU_1_0_0
+ifeq ($(EMULATOR_BUILD),1)
+CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DEMULATOR_BUILD
+else
+CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
+endif
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 
@@ -166,11 +171,11 @@ endif
 #---------------------------------------------------------------------------------
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
+EMULATOR_BUILD ?= 1
 MAKEROM :=
 ifeq ($(UNAME_S), Darwin)
-	ifeq ($(UNAME_M), x86_64)
-		MAKEROM := ./makerom/darwin_x86_64/makerom
-	endif
+	# darwin_x86_64/makerom runs under Rosetta on Apple Silicon.
+	MAKEROM := ./makerom/darwin_x86_64/makerom
 endif
 ifeq ($(UNAME_S), Linux)
 	ifeq ($(UNAME_M), x86_64)
@@ -186,10 +191,14 @@ endif
 #---------------------------------------------------------------------------------
 
 
-.PHONY: $(BUILD) clean all
+.PHONY: $(BUILD) clean all 3dsx
 
 #---------------------------------------------------------------------------------
-all: $(BUILD) cia
+all: $(BUILD)
+	@$(MAKE) 3dsx
+	@$(MAKE) cia 2>/dev/null || true
+
+3dsx: $(BUILD)
 
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
@@ -201,7 +210,7 @@ cia: $(BUILD)
 ifneq ($(MAKEROM),)
 	$(MAKEROM) -rsf $(OUTPUT).rsf -elf $(OUTPUT).elf -icon $(OUTPUT).icn -banner $(OUTPUT).bnr -f cia -o $(OUTPUT).cia
 else
-	$(error "CIA creation is not supported on this platform ($(UNAME_S)_$(UNAME_M))")
+	$(info Skipping CIA creation (unsupported platform: $(UNAME_S)_$(UNAME_M)))
 endif
 
 

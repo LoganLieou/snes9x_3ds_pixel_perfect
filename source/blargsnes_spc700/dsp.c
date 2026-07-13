@@ -2,6 +2,7 @@
 // Credits go to Archeide and whoever else participated in this.
 
 #include "dsp.h"
+#include <string.h>
 
 // DSP write buffers
 // * 32 16-sample periods

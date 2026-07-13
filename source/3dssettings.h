@@ -55,6 +55,7 @@ typedef struct
 
     int     Font = 0;                       // 0 - Tempesta, 1 - Ronda, 2 - Arial
     int     ScreenStretch = 0;              // 0 - no stretch, 1 - stretch full, 2 - aspect fit
+    int     NearestNeighbor = 0;            // 0 - bilinear filtering, 1 - sharp nearest-neighbor
 
     EmulatedFramerate ForceFrameRate = EmulatedFramerate::UseRomRegion;
 

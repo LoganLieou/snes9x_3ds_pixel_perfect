@@ -8,8 +8,6 @@
 
 #include <3ds.h>
 
-#ifndef LIBCTRU_1_0_0
-
 /**
  * @brief Initializes the GPU.
  * @param gsphandle GSP handle to use.
@@ -235,5 +233,3 @@ void GPU_DrawElements(GPU_Primitive_t primitive, u32* indexArray, u32 n);
  * @deprecated
  */
 void GPU_FinishDrawing();
-
-#endif

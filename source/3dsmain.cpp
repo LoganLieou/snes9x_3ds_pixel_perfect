@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <ctime>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -60,6 +61,7 @@ char romFileName[_MAX_PATH];
 char romFileNameLastSelected[_MAX_PATH];
 
 
+// Resets per-game emulator settings (palette fix, SRAM interval, hotkeys) to their default values.
 void LoadDefaultSettings() {
     settings3DS.PaletteFix = 0;
     settings3DS.SRAMSaveInterval = 0;
@@ -123,6 +125,7 @@ void clearTopScreenWithLogo()
 //----------------------------------------------------------------------
 
 namespace {
+    // Sets oldValue to newValue if they differ and flags changed, returning whether an update occurred.
     template <typename T>
     bool CheckAndUpdate( T& oldValue, const T& newValue, bool& changed ) {
         if ( oldValue != newValue ) {
@@ -133,39 +136,48 @@ namespace {
         return false;
     }
 
+    // Appends an Action-type menu item that executes a callback when selected.
     void AddMenuAction(std::vector<SMenuItem>& items, const std::string& text, std::function<void(int)> callback) {
         items.emplace_back(callback, MenuItemType::Action, text, ""s);
     }
 
+    // Appends an Action-type menu item used as a selectable option within a dialog popup.
     void AddMenuDialogOption(std::vector<SMenuItem>& items, int value, const std::string& text, const std::string& description = ""s) {
         items.emplace_back(nullptr, MenuItemType::Action, text, description, value);
     }
 
+    // Appends a disabled (greyed-out, non-selectable) menu item for display purposes only.
     void AddMenuDisabledOption(std::vector<SMenuItem>& items, const std::string& text) {
         items.emplace_back(nullptr, MenuItemType::Disabled, text, ""s);
     }
 
+    // Appends a top-level bold header text item to visually group menu sections.
     void AddMenuHeader1(std::vector<SMenuItem>& items, const std::string& text) {
         items.emplace_back(nullptr, MenuItemType::Header1, text, ""s);
     }
 
+    // Appends a secondary header text item to visually subdivide menu sections.
     void AddMenuHeader2(std::vector<SMenuItem>& items, const std::string& text) {
         items.emplace_back(nullptr, MenuItemType::Header2, text, ""s);
     }
 
+    // Appends a toggleable checkbox menu item that calls a callback when its state changes.
     void AddMenuCheckbox(std::vector<SMenuItem>& items, const std::string& text, int value, std::function<void(int)> callback) {
         items.emplace_back(callback, MenuItemType::Checkbox, text, ""s, value);
     }
 
+    // Appends a slider/gauge menu item with a min-max range that calls a callback on value change.
     void AddMenuGauge(std::vector<SMenuItem>& items, const std::string& text, int min, int max, int value, std::function<void(int)> callback) {
         items.emplace_back(callback, MenuItemType::Gauge, text, ""s, value, min, max);
     }
 
+    // Appends a picker menu item that opens a sub-dialog for selecting from a list of options.
     void AddMenuPicker(std::vector<SMenuItem>& items, const std::string& text, const std::string& description, const std::vector<SMenuItem>& options, int value, int backgroundColor, bool showSelectedOptionInMenu, std::function<void(int)> callback) {
         items.emplace_back(callback, MenuItemType::Picker, text, ""s, value, showSelectedOptionInMenu ? 1 : 0, 0, description, options, backgroundColor);
     }
 }
 
+// Sets the emulator state to END and flags app exit if the user confirms the exit dialog.
 void exitEmulatorOptionSelected( int val ) {
     if ( val == 1 ) {
         GPU3DS.emulatorState = EMUSTATE_END;
@@ -173,6 +185,7 @@ void exitEmulatorOptionSelected( int val ) {
     }
 }
 
+// Returns a two-option dialog list for Yes/No confirmation prompts.
 std::vector<SMenuItem> makeOptionsForNoYes() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 0, "No"s, ""s);
@@ -180,12 +193,14 @@ std::vector<SMenuItem> makeOptionsForNoYes() {
     return items;
 }
 
+// Returns a single-option dialog list for informational OK prompts.
 std::vector<SMenuItem> makeOptionsForOk() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 0, "OK"s, ""s);
     return items;
 }
 
+// Builds the in-game Emulator menu tab with savestate, screenshot, reset, and exit options.
 std::vector<SMenuItem> makeEmulatorMenu(std::vector<SMenuTab>& menuTab, int& currentMenuTab, bool& closeMenu) {
     std::vector<SMenuItem> items;
     AddMenuHeader2(items, "Resume"s);
@@ -226,7 +241,7 @@ std::vector<SMenuItem> makeEmulatorMenu(std::vector<SMenuTab>& menuTab, int& cur
         }, MenuItemType::Action, optionText.str(), ""s);
     }
     AddMenuHeader2(items, ""s);
-    
+
     for (int slot = 1; slot <= 5; ++slot) {
         std::ostringstream optionText;
         optionText << "  Load Slot #" << slot;
@@ -283,7 +298,7 @@ std::vector<SMenuItem> makeEmulatorMenu(std::vector<SMenuTab>& menuTab, int& cur
             menu3dsShowDialog(dialogTab, isDialog, currentMenuTab, menuTab, "Screenshot", text, DIALOGCOLOR_GREEN, makeOptionsForOk());
             menu3dsHideDialog(dialogTab, isDialog, currentMenuTab, menuTab);
         }
-        else 
+        else
         {
             menu3dsShowDialog(dialogTab, isDialog, currentMenuTab, menuTab, "Screenshot", "Oops. Unable to take screenshot!", DIALOGCOLOR_RED, makeOptionsForOk());
             menu3dsHideDialog(dialogTab, isDialog, currentMenuTab, menuTab);
@@ -307,6 +322,7 @@ std::vector<SMenuItem> makeEmulatorMenu(std::vector<SMenuTab>& menuTab, int& cur
     return items;
 }
 
+// Returns a list of available UI fonts (Tempesta, Ronda, Arial) for the font picker.
 std::vector<SMenuItem> makeOptionsForFont() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 0, "Tempesta"s, ""s);
@@ -315,6 +331,7 @@ std::vector<SMenuItem> makeOptionsForFont() {
     return items;
 }
 
+// Returns a list of screen stretch modes with descriptive names for the stretch picker.
 std::vector<SMenuItem> makeOptionsForStretch() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 0, "No Stretch"s,              "'Pixel Perfect'"s);
@@ -328,6 +345,7 @@ std::vector<SMenuItem> makeOptionsForStretch() {
     return items;
 }
 
+// Returns a list of SNES button masks for mapping 3DS physical buttons to SNES controls.
 std::vector<SMenuItem> makeOptionsForButtonMapping() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 0,                      "-"s);
@@ -361,6 +379,7 @@ std::vector<SMenuItem> makeOptionsForButtonMapping() {
     return items;
 }
 
+// Returns a list of 3DS hardware button key codes for binding emulator hotkeys.
 std::vector<SMenuItem> makeOptionsFor3DSButtonMapping() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 0,                                   "-"s);
@@ -375,6 +394,7 @@ std::vector<SMenuItem> makeOptionsFor3DSButtonMapping() {
     return items;
 }
 
+// Returns a list of frameskip levels (0 through 4 max skipped frames) for the frameskip picker.
 std::vector<SMenuItem> makeOptionsForFrameskip() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 0, "Disabled"s,                ""s);
@@ -385,6 +405,7 @@ std::vector<SMenuItem> makeOptionsForFrameskip() {
     return items;
 };
 
+// Returns a list of framerate modes (auto-detect, 50/60 FPS, or match 3DS refresh rate).
 std::vector<SMenuItem> makeOptionsForFrameRate() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, static_cast<int>(EmulatedFramerate::UseRomRegion), "Default based on ROM region"s, ""s);
@@ -394,6 +415,7 @@ std::vector<SMenuItem> makeOptionsForFrameRate() {
     return items;
 };
 
+// Returns a list of SRAM auto-save delay intervals (1s, 10s, 60s, or disabled).
 std::vector<SMenuItem> makeOptionsForAutoSaveSRAMDelay() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 1, "1 second"s,    ""s);
@@ -403,6 +425,7 @@ std::vector<SMenuItem> makeOptionsForAutoSaveSRAMDelay() {
     return items;
 };
 
+// Returns a list of in-frame palette change handling modes for fixing color issues in some games.
 std::vector<SMenuItem> makeOptionsForInFramePaletteChanges() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 1, "Enabled"s,          "Best (not 100% accurate); slower"s);
@@ -411,6 +434,7 @@ std::vector<SMenuItem> makeOptionsForInFramePaletteChanges() {
     return items;
 };
 
+// Returns a list of audio DSP cores (Snes9x original accurate core or BlargSNES fast core).
 std::vector<SMenuItem> makeOptionsForDSPCore() {
     std::vector<SMenuItem> items;
     AddMenuDialogOption(items, 0, "Snes9X Original"s,   "Sound may skip occassionally."s);
@@ -418,18 +442,23 @@ std::vector<SMenuItem> makeOptionsForDSPCore() {
     return items;
 };
 
+// Builds the minimal boot-up Emulator menu tab containing only an exit option.
 std::vector<SMenuItem> makeEmulatorNewMenu() {
     std::vector<SMenuItem> items;
     AddMenuPicker(items, "  Exit"s, "Leaving so soon?", makeOptionsForNoYes(), 0, DIALOGCOLOR_RED, false, exitEmulatorOptionSelected);
     return items;
 }
 
+// Builds the Options menu tab with global settings and game-specific graphics/audio/SRAM settings.
 std::vector<SMenuItem> makeOptionMenu() {
     std::vector<SMenuItem> items;
 
     AddMenuHeader1(items, "GLOBAL SETTINGS"s);
     AddMenuPicker(items, "  Screen Stretch"s, "How would you like the final screen to appear?"s, makeOptionsForStretch(), settings3DS.ScreenStretch, DIALOGCOLOR_CYAN, true,
                   []( int val ) { CheckAndUpdate( settings3DS.ScreenStretch, val, settings3DS.Changed ); });
+    AddMenuCheckbox(items, "  Nearest Neighbor Filtering"s, settings3DS.NearestNeighbor,
+                    []( int val ) { CheckAndUpdate( settings3DS.NearestNeighbor, val, settings3DS.Changed ); });
+    AddMenuDisabledOption(items, ""s);
     AddMenuPicker(items, "  Font"s, "The font used for the user interface."s, makeOptionsForFont(), settings3DS.Font, DIALOGCOLOR_CYAN, true,
                   []( int val ) { if ( CheckAndUpdate( settings3DS.Font, val, settings3DS.Changed ) ) { ui3dsSetFont(val); } });
     AddMenuCheckbox(items, "  Hide text in bottom screen"s, settings3DS.HideUnnecessaryBottomScrText,
@@ -461,44 +490,45 @@ std::vector<SMenuItem> makeOptionMenu() {
 
     AddMenuHeader1(items, "AUDIO"s);
     AddMenuCheckbox(items, "  Use the same DSP core for all games"s, settings3DS.UseGlobalDSPCore,
-                []( int val ) 
-                { 
-                    CheckAndUpdate( settings3DS.UseGlobalDSPCore, val, settings3DS.Changed ); 
+                []( int val )
+                {
+                    CheckAndUpdate( settings3DS.UseGlobalDSPCore, val, settings3DS.Changed );
                     if (settings3DS.UseGlobalDSPCore)
-                        settings3DS.GlobalDSPCore = settings3DS.DSPCore; 
+                        settings3DS.GlobalDSPCore = settings3DS.DSPCore;
                     else
-                        settings3DS.DSPCore = settings3DS.GlobalDSPCore; 
+                        settings3DS.DSPCore = settings3DS.GlobalDSPCore;
                 });
-    
+
     AddMenuPicker(items, "  DSP Core"s, "Choose a different core to improve performance"s, makeOptionsForDSPCore(), settings3DS.UseGlobalDSPCore ? settings3DS.GlobalDSPCore : settings3DS.DSPCore, DIALOGCOLOR_CYAN, true,
-                []( int val ) 
-                { 
+                []( int val )
+                {
                     if (settings3DS.UseGlobalDSPCore)
-                        CheckAndUpdate( settings3DS.GlobalDSPCore, val, settings3DS.Changed ); 
+                        CheckAndUpdate( settings3DS.GlobalDSPCore, val, settings3DS.Changed );
                     else
-                        CheckAndUpdate( settings3DS.DSPCore, val, settings3DS.Changed ); 
+                        CheckAndUpdate( settings3DS.DSPCore, val, settings3DS.Changed );
                 });
     AddMenuCheckbox(items, "  Apply volume to all games"s, settings3DS.UseGlobalVolume,
-                []( int val ) 
-                { 
-                    CheckAndUpdate( settings3DS.UseGlobalVolume, val, settings3DS.Changed ); 
+                []( int val )
+                {
+                    CheckAndUpdate( settings3DS.UseGlobalVolume, val, settings3DS.Changed );
                     if (settings3DS.UseGlobalVolume)
-                        settings3DS.GlobalVolume = settings3DS.Volume; 
+                        settings3DS.GlobalVolume = settings3DS.Volume;
                     else
-                        settings3DS.Volume = settings3DS.GlobalVolume; 
+                        settings3DS.Volume = settings3DS.GlobalVolume;
                 });
-    AddMenuGauge(items, "  Volume Amplification"s, 0, 8, 
+    AddMenuGauge(items, "  Volume Amplification"s, 0, 8,
                 settings3DS.UseGlobalVolume ? settings3DS.GlobalVolume : settings3DS.Volume,
-                []( int val ) { 
+                []( int val ) {
                     if (settings3DS.UseGlobalVolume)
-                        CheckAndUpdate( settings3DS.GlobalVolume, val, settings3DS.Changed ); 
+                        CheckAndUpdate( settings3DS.GlobalVolume, val, settings3DS.Changed );
                     else
-                        CheckAndUpdate( settings3DS.Volume, val, settings3DS.Changed ); 
+                        CheckAndUpdate( settings3DS.Volume, val, settings3DS.Changed );
                 });
 
     return items;
 };
 
+// Builds the Controls menu tab with per-button 3DS-to-SNES mappings, rapid-fire, and hotkey configuration.
 std::vector<SMenuItem> makeControlsMenu() {
     std::vector<SMenuItem> items;
 
@@ -516,9 +546,9 @@ std::vector<SMenuItem> makeControlsMenu() {
 
     AddMenuHeader1(items, "BUTTON CONFIGURATION"s);
     AddMenuCheckbox(items, "Apply button mappings to all games"s, settings3DS.UseGlobalButtonMappings,
-                []( int val ) 
-                { 
-                    CheckAndUpdate( settings3DS.UseGlobalButtonMappings, val, settings3DS.Changed ); 
+                []( int val )
+                {
+                    CheckAndUpdate( settings3DS.UseGlobalButtonMappings, val, settings3DS.Changed );
                     for (int i = 0; i < 10; i++)
                         for (int j = 0; j < 4; j++)
                             if (settings3DS.UseGlobalButtonMappings)
@@ -527,16 +557,16 @@ std::vector<SMenuItem> makeControlsMenu() {
                                 settings3DS.ButtonMapping[i][j] = settings3DS.GlobalButtonMapping[i][j];
                 });
     AddMenuCheckbox(items, "Apply rapid fire settings to all games"s, settings3DS.UseGlobalTurbo,
-                []( int val ) 
-                { 
-                    CheckAndUpdate( settings3DS.UseGlobalTurbo, val, settings3DS.Changed ); 
+                []( int val )
+                {
+                    CheckAndUpdate( settings3DS.UseGlobalTurbo, val, settings3DS.Changed );
                     for (int i = 0; i < 8; i++)
                         if (settings3DS.UseGlobalTurbo)
                             settings3DS.GlobalTurbo[i] = settings3DS.Turbo[i];
                         else
                             settings3DS.Turbo[i] = settings3DS.GlobalTurbo[i];
                 });
-    
+
     for (size_t i = 0; i < 10; ++i) {
         std::ostringstream optionButtonName;
         optionButtonName << t3dsButtonNames[i];
@@ -547,8 +577,8 @@ std::vector<SMenuItem> makeControlsMenu() {
             std::ostringstream optionName;
             optionName << "  Maps to";
 
-            AddMenuPicker( items, optionName.str(), ""s, makeOptionsForButtonMapping(), 
-                settings3DS.UseGlobalButtonMappings ? settings3DS.GlobalButtonMapping[i][j] : settings3DS.ButtonMapping[i][j], 
+            AddMenuPicker( items, optionName.str(), ""s, makeOptionsForButtonMapping(),
+                settings3DS.UseGlobalButtonMappings ? settings3DS.GlobalButtonMapping[i][j] : settings3DS.ButtonMapping[i][j],
                 DIALOGCOLOR_CYAN, true,
                 [i, j]( int val ) {
                     if (settings3DS.UseGlobalButtonMappings)
@@ -560,16 +590,16 @@ std::vector<SMenuItem> makeControlsMenu() {
         }
 
         if (i < 8)
-            AddMenuGauge(items, "  Rapid-Fire Speed"s, 0, 10, 
-                settings3DS.UseGlobalTurbo ? settings3DS.GlobalTurbo[i] : settings3DS.Turbo[i], 
-                [i]( int val ) 
-                { 
+            AddMenuGauge(items, "  Rapid-Fire Speed"s, 0, 10,
+                settings3DS.UseGlobalTurbo ? settings3DS.GlobalTurbo[i] : settings3DS.Turbo[i],
+                [i]( int val )
+                {
                     if (settings3DS.UseGlobalTurbo)
-                        CheckAndUpdate( settings3DS.GlobalTurbo[i], val, settings3DS.Changed ); 
+                        CheckAndUpdate( settings3DS.GlobalTurbo[i], val, settings3DS.Changed );
                     else
-                        CheckAndUpdate( settings3DS.Turbo[i], val, settings3DS.Changed ); 
+                        CheckAndUpdate( settings3DS.Turbo[i], val, settings3DS.Changed );
                 });
-        
+
     }
 
     AddMenuDisabledOption(items, ""s);
@@ -577,16 +607,16 @@ std::vector<SMenuItem> makeControlsMenu() {
     AddMenuHeader1(items, "EMULATOR FUNCTIONS"s);
 
     AddMenuCheckbox(items, "Apply keys to all games"s, settings3DS.UseGlobalEmuControlKeys,
-                []( int val ) 
-                { 
-                    CheckAndUpdate( settings3DS.UseGlobalEmuControlKeys, val, settings3DS.Changed ); 
+                []( int val )
+                {
+                    CheckAndUpdate( settings3DS.UseGlobalEmuControlKeys, val, settings3DS.Changed );
                     if (settings3DS.UseGlobalEmuControlKeys)
                         settings3DS.GlobalButtonHotkeyOpenMenu.MappingBitmasks[0] = settings3DS.ButtonHotkeyOpenMenu.MappingBitmasks[0];
                     else
                         settings3DS.ButtonHotkeyOpenMenu.MappingBitmasks[0] = settings3DS.GlobalButtonHotkeyOpenMenu.MappingBitmasks[0];
                 });
 
-    AddMenuPicker( items, "Open Emulator Menu", ""s, makeOptionsFor3DSButtonMapping(), 
+    AddMenuPicker( items, "Open Emulator Menu", ""s, makeOptionsFor3DSButtonMapping(),
         settings3DS.UseGlobalEmuControlKeys ? settings3DS.GlobalButtonHotkeyOpenMenu.MappingBitmasks[0] : settings3DS.ButtonHotkeyOpenMenu.MappingBitmasks[0], DIALOGCOLOR_CYAN, true,
         []( int val ) {
             uint32 v = static_cast<uint32>(val);
@@ -598,7 +628,7 @@ std::vector<SMenuItem> makeControlsMenu() {
         }
     );
 
-    AddMenuPicker( items, "Fast-Forward", ""s, makeOptionsFor3DSButtonMapping(), 
+    AddMenuPicker( items, "Fast-Forward", ""s, makeOptionsFor3DSButtonMapping(),
         settings3DS.UseGlobalEmuControlKeys ? settings3DS.GlobalButtonHotkeyDisableFramelimit.MappingBitmasks[0] : settings3DS.ButtonHotkeyDisableFramelimit.MappingBitmasks[0], DIALOGCOLOR_CYAN, true,
         []( int val ) {
             uint32 v = static_cast<uint32>(val);
@@ -616,6 +646,7 @@ std::vector<SMenuItem> makeControlsMenu() {
 
 void menuSetupCheats(std::vector<SMenuItem>& cheatMenu);
 
+// Builds the Cheats menu tab by invoking menuSetupCheats to populate the cheat list.
 std::vector<SMenuItem> makeCheatMenu() {
     std::vector<SMenuItem> items;
     AddMenuHeader2(items, "Cheats"s);
@@ -673,13 +704,13 @@ bool settingsUpdateAllSettings(bool updateGameSettings = true)
     }
     else if (settings3DS.ScreenStretch == 6)    // TV
     {
-        settings3DS.StretchWidth = 292;       
+        settings3DS.StretchWidth = 292;
         settings3DS.StretchHeight = -1;
         settings3DS.CropPixels = 0;
     }
     else if (settings3DS.ScreenStretch == 7)    // Stretch h/w but keep 1:1 ratio
     {
-        settings3DS.StretchWidth = 01010000;       
+        settings3DS.StretchWidth = 01010000;
         settings3DS.StretchHeight = 240;
         settings3DS.CropPixels = 0;
     }
@@ -731,7 +762,7 @@ bool settingsUpdateAllSettings(bool updateGameSettings = true)
             if (Settings.UseFastDSPCore)
                 S9xCopyDSPParamters(true);      // copy Snes9x to BlargSNES DSP core
             else
-                S9xCopyDSPParamters(false);     // copy Snes9x to BlargSNES DSP core    
+                S9xCopyDSPParamters(false);     // copy Snes9x to BlargSNES DSP core
         }
         //printf ("vol: %d\n", Settings.VolumeMultiplyMul4);
 
@@ -772,7 +803,7 @@ bool settingsUpdateAllSettings(bool updateGameSettings = true)
                 settings3DS.SRAMSaveInterval = 3;
             settingsChanged = true;
         }
-        
+
         // Fixes the Auto-Save timer bug that causes
         // the SRAM to be saved once when the settings were
         // changed to Disabled.
@@ -787,6 +818,7 @@ bool settingsUpdateAllSettings(bool updateGameSettings = true)
 }
 
 namespace {
+// Helper that reads/writes a uint32 bitmask through the config system by treating it as an int32.
     void config3dsReadWriteBitmask(const char* name, uint32* bitmask) {
         int tmp = static_cast<int>(*bitmask);
         config3dsReadWriteInt32(name, &tmp, std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
@@ -860,11 +892,12 @@ bool settingsReadWriteFullListGlobal(bool writeMode)
     bool success = config3dsOpenFile("sdmc:./snes9x_3ds.cfg", writeMode);
     if (!success)
         return false;
-    
+
     config3dsReadWriteInt32("#v1\n", NULL, 0, 0);
     config3dsReadWriteInt32("# Do not modify this file or risk losing your settings.\n", NULL, 0, 0);
 
     config3dsReadWriteInt32("ScreenStretch=%d\n", &settings3DS.ScreenStretch, 0, 7);
+    config3dsReadWriteInt32("NearestNeighbor=%d\n", &settings3DS.NearestNeighbor, 0, 1);
     config3dsReadWriteInt32("HideUnnecessaryBottomScrText=%d\n", &settings3DS.HideUnnecessaryBottomScrText, 0, 1);
     config3dsReadWriteInt32("Font=%d\n", &settings3DS.Font, 0, 2);
 
@@ -933,7 +966,7 @@ bool settingsSave(bool includeGameSettings = true)
 //----------------------------------------------------------------------
 void settingsDefaultButtonMapping(int buttonMapping[8][4])
 {
-    uint32 defaultButtons[] = 
+    uint32 defaultButtons[] =
     { SNES_A_MASK, SNES_B_MASK, SNES_X_MASK, SNES_Y_MASK, SNES_TL_MASK, SNES_TR_MASK, 0, 0, SNES_SELECT_MASK, SNES_START_MASK };
 
     for (int i = 0; i < 10; i++)
@@ -1108,11 +1141,12 @@ bool menuCopyCheats(std::vector<SMenuItem>& cheatMenu, bool copyMenuToSettings)
         else
             cheatMenu[i+1].SetValue(Cheat.c[i].enabled);
     }
-    
+
     return cheatsUpdated;
 }
 
 
+// Populates a menu item vector with selectable ROM file entries from the directory listing.
 void fillFileMenuFromFileNames(std::vector<SMenuItem>& fileMenu, const std::vector<DirectoryEntry>& romFileNames, const DirectoryEntry*& selectedEntry) {
     fileMenu.clear();
     fileMenu.reserve(romFileNames.size());
@@ -1152,6 +1186,7 @@ void setupBootupMenu(std::vector<SMenuTab>& menuTab, std::vector<DirectoryEntry>
 
 std::vector<DirectoryEntry> romFileNames; // needs to stay in scope, is there a better way?
 
+// Displays the boot-time ROM file browser and handles ROM/directory selection until the user picks a file.
 void menuSelectFile(void)
 {
     std::vector<SMenuTab> menuTab;
@@ -1397,7 +1432,7 @@ void emulatorInitialize()
     {
         settings3DS.RomFsLoaded = true;
     }
-    
+
     printf ("Initialization complete\n");
 
     osSetSpeedupEnable(1);    // Performance: use the higher clock speed for new 3DS.
@@ -1450,17 +1485,17 @@ void emulatorFinalize()
         printf("romfsExit:\n");
         romfsExit();
     }
-    
+
 #ifndef RELEASE
     printf("hidExit:\n");
 #endif
 	hidExit();
-    
+
 #ifndef RELEASE
     printf("aptExit:\n");
 #endif
 	aptExit();
-    
+
 #ifndef RELEASE
     printf("srvExit:\n");
 #endif
@@ -1527,7 +1562,7 @@ void updateFrameCount()
 
 
 //----------------------------------------------------------
-// This is the main emulation loop. It calls the 
+// This is the main emulation loop. It calls the
 //    impl3dsRunOneFrame
 //   (which must be implemented for any new core)
 // for the execution of the frame.
@@ -1587,7 +1622,7 @@ void emulatorLoop()
 
         impl3dsRunOneFrame(firstFrame, skipDrawingFrame);
 
-        firstFrame = false; 
+        firstFrame = false;
 
         // This either waits for the next frame, or decides to skip
         // the rendering for the next frame if we are too slow.
@@ -1645,8 +1680,8 @@ void emulatorLoop()
 
                 if (
                     (!settings3DS.UseGlobalEmuControlKeys && settings3DS.ButtonHotkeyDisableFramelimit.IsHeld(input3dsGetCurrentKeysHeld())) ||
-                    (settings3DS.UseGlobalEmuControlKeys && settings3DS.GlobalButtonHotkeyDisableFramelimit.IsHeld(input3dsGetCurrentKeysHeld())) 
-                    ) 
+                    (settings3DS.UseGlobalEmuControlKeys && settings3DS.GlobalButtonHotkeyDisableFramelimit.IsHeld(input3dsGetCurrentKeysHeld()))
+                    )
                 {
                     skipDrawingFrame = (frameCount60 % 2) == 0;
                 }
