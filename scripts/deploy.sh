@@ -44,6 +44,7 @@ fi
 
 echo "=== Building for real 3DS hardware (EMULATOR_BUILD=0) ==="
 cd "${PROJECT_DIR}"
+make clean
 make EMULATOR_BUILD=0 2>&1
 
 THREEDSX="${PROJECT_DIR}/${TARGET}.3dsx"

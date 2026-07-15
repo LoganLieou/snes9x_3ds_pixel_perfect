@@ -1404,22 +1404,44 @@ void emulatorInitialize()
     if (!gpu3dsInitialize())
     {
         printf ("Unable to initialize GPU\n");
+        gfxFlushBuffers();
+        gfxSwapBuffers();
+        gspWaitForVBlank();
         exit(0);
     }
 
     printf ("Initializing...\n");
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
 
     if (!impl3dsInitializeCore())
     {
         printf ("Unable to initialize emulator core\n");
+        gfxFlushBuffers();
+        gfxSwapBuffers();
+        gspWaitForVBlank();
         exit(0);
     }
+
+    printf ("Core initialized.\n");
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
 
     if (!snd3dsInitialize())
     {
         printf ("Unable to initialize CSND\n");
+        gfxFlushBuffers();
+        gfxSwapBuffers();
+        gspWaitForVBlank();
         exit (0);
     }
+
+    printf ("Sound initialized.\n");
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
 
     ui3dsInitialize();
 

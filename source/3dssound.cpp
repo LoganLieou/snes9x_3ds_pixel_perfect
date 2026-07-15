@@ -254,6 +254,8 @@ Result snd3dsPlaySound(int chn, u32 flags, u32 sampleRate, float vol, float pan,
 //---------------------------------------------------------
 void snd3dsStartPlaying()
 {
+    if (snd3DS.audioType == 0)
+        return;
     if (!snd3DS.isPlaying)
     {
         for (int i = 0; i < SAMPLEBUFFER_SIZE; i++)
@@ -294,6 +296,8 @@ void snd3dsStartPlaying()
 //---------------------------------------------------------
 void snd3dsStopPlaying()
 {
+    if (snd3DS.audioType == 0)
+        return;
     if (snd3DS.isPlaying)
     {
         snd3DS.isPlaying = false;
@@ -356,7 +360,15 @@ bool snd3dsInitialize()
     else
     {
         printf ("Unable to initialize 3DS CSND service\n");
+#ifdef EMULATOR_BUILD
+        // Emulator (e.g. Azahar) may not implement the CSND service.
+        // Continue without audio rather than hard-exiting; the rest of
+        // the emulator (UI, rendering) still works.
+        snd3DS.audioType = 0;
+        return true;
+#else
         return false;
+#endif
     }
 
     // Initialize the sound buffers

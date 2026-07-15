@@ -51,6 +51,7 @@ fi
 
 echo "=== Building ==="
 cd "${PROJECT_DIR}"
+make clean
 make 2>&1
 
 THREEDSX="${PROJECT_DIR}/${TARGET}.3dsx"

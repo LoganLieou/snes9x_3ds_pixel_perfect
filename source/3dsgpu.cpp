@@ -495,31 +495,25 @@ bool gpu3dsInitialize()
         gfxInit(GPU3DS.screenFormat, GPU3DS.screenFormat, false);
 		    GPU_Init(NULL);
 
-		    gfxSet3D(false);
+	gfxSwapBuffers();
+	gspWaitForVBlank();
+	consoleInit(GFX_BOTTOM, NULL);
+	printf("gpu3dsInitialize: post-gfxInit swap done\n");
+	gfxFlushBuffers();
+	gfxSwapBuffers();
+	gspWaitForVBlank();
 
-    // Clear the right eye framebuffer to prevent GPU from reading garbage.
-    // Old libctru used to share framebuffers between eyes; new libctru
-    // allocates separate ones. Since this emulator only renders to one
-    // framebuffer, we zero out the right eye.
-    {
-        u8* fbRight = gfxGetFramebuffer(GFX_TOP, GFX_RIGHT, NULL, NULL);
-        if (fbRight)
-            memset(fbRight, 0, 400 * 240 * 4);
-    }
+		    gfxSet3D(false);
 
     // Create the frame and depth buffers for the top screen.
     //
     GPU3DS.frameBufferFormat = GPU_RGBA8;
-#ifdef EMULATOR_BUILD
-    // Emulator: use linear memory instead of VRAM. Linear memory is identity-mapped
-    // (osConvertVirtToPhys returns the same address), so the PICA200 GPU writes to
-    // the actual memory we can read back with CPU.
-    GPU3DS.frameBuffer = (u32 *) linearMemAlign(400*240*8, 0x100);
-    GPU3DS.frameDepthBuffer = (u32 *) linearMemAlign(400*240*8, 0x100);
-#else
     GPU3DS.frameBuffer = (u32 *) vramMemAlign(400*240*8, 0x100);
     GPU3DS.frameDepthBuffer = (u32 *) vramMemAlign(400*240*8, 0x100);
-#endif
+    printf("gpu3dsInitialize: vramMemAlign fb=%p db=%p\n", GPU3DS.frameBuffer, GPU3DS.frameDepthBuffer);
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
     if (GPU3DS.frameBuffer == NULL ||
         GPU3DS.frameDepthBuffer == NULL)
     {
@@ -540,6 +534,10 @@ bool gpu3dsInitialize()
         return false;
 	GPU_Reset(NULL, gpuCommandBuffer1, gpuCommandBufferSize);
     gpuCurrentCommandBuffer = 0;
+    printf("gpu3dsInitialize: cmd buffers allocated\n");
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
 
 #ifndef RELEASE
     printf ("Buffer: %8x\n", (u32) gpuCommandBuffer1);
@@ -606,8 +604,16 @@ bool gpu3dsInitialize()
 
     gpu3dsSetTextureEnvironmentReplaceTexture0();
 
+    printf("gpu3dsInitialize: about to flush\n");
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
     gpu3dsFlush();
     gpu3dsWaitForPreviousFlush();
+    printf("gpu3dsInitialize: flush done, returning true\n");
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
 
     return true;
 }
@@ -626,13 +632,8 @@ void gpu3dsFinalize()
     }
 
     // Bug fix: free the frame buffers!
-#ifdef EMULATOR_BUILD
-    LINEARFREE_SAFE(GPU3DS.frameBuffer);
-    LINEARFREE_SAFE(GPU3DS.frameDepthBuffer);
-#else
     if (GPU3DS.frameBuffer) vramFree(GPU3DS.frameBuffer);
     if (GPU3DS.frameDepthBuffer) vramFree(GPU3DS.frameDepthBuffer);
-#endif
 
     //gpu3dsDestroyTextureFromVRAM(snesOBJLayerTarget);
     //gpu3dsDestroyTextureFromVRAM(snesOBJDepth);
@@ -1021,24 +1022,12 @@ void gpu3dsSetRenderTargetToTopFrameBuffer()
 
         GPU3DS.currentRenderTarget = NULL;
 
-#ifdef EMULATOR_BUILD
-        // Emulator: render to linear-memory frame buffer.
-        // osConvertVirtToPhys returns same address (identity-mapped),
-        // so PICA200 writes go where CPU can read them.
-        GPU_SetViewport(
-            GPU3DS.frameDepthBuffer == NULL ? NULL : (u32 *)osConvertVirtToPhys(GPU3DS.frameDepthBuffer),
-            (u32 *)osConvertVirtToPhys(GPU3DS.frameBuffer),
-            0, 0, 240, 400);
-        GPUCMD_AddSingleParam(0x000F0117, GPUREG_COLORBUFFER_FORMAT_VALUES[GPU3DS.frameBufferFormat]);
-#else
-        // Real hardware path: use VRAM buffer via physical address translation
         GPU_SetViewport(
             GPU3DS.frameDepthBuffer == NULL ? NULL : (u32 *)osConvertVirtToPhys(GPU3DS.frameDepthBuffer),
             (u32 *)osConvertVirtToPhys(GPU3DS.frameBuffer),
             0, 0, 240, 400);
 
         GPUCMD_AddSingleParam(0x000F0117, GPUREG_COLORBUFFER_FORMAT_VALUES[GPU3DS.frameBufferFormat]);
-#endif
     }
 }
 
@@ -1145,7 +1134,10 @@ void gpu3dsWaitForPreviousFlush()
 {
     if (somethingWasFlushed)
     {
-        gspWaitForP3D();
+        // Emulators (Citra/Azahar) may never signal the P3D interrupt;
+        // waiting here freezes the app during init. Only block on real HW.
+        if (GPU3DS.isReal3DS)
+            gspWaitForP3D();
         somethingWasFlushed = false;
     }
 }
@@ -1195,17 +1187,6 @@ const uint32 GX_TRANSFER_SCREEN_FORMAT_VALUES[5]= {
 
 void gpu3dsTransferToScreenBuffer()
 {
-#ifdef EMULATOR_BUILD
-    // Emulator: frameBuffer is in linear memory — osConvertVirtToPhys is
-    // identity-mapped, so PICA200 GPU wrote directly where CPU can read.
-    // Do CPU memcpy to screen framebuffer instead of GX_DisplayTransfer.
-    gpu3dsWaitForPreviousFlush();
-    u8* dst = gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL);
-    if (GPU3DS.frameBuffer && dst) {
-        memcpy(dst, GPU3DS.frameBuffer, 400 * 240 * 4);
-        GSPGPU_FlushDataCache(dst, 400 * 240 * 4);
-    }
-#else
     gpu3dsWaitForPreviousFlush();
 
     GX_DisplayTransfer(GPU3DS.frameBuffer, GX_BUFFER_DIM(240, 400),
@@ -1214,7 +1195,6 @@ void gpu3dsTransferToScreenBuffer()
         GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FRAMEBUFFER_FORMAT_VALUES[GPU3DS.frameBufferFormat]) |
         GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_SCREEN_FORMAT_VALUES[GPU3DS.screenFormat]));
     gspWaitForPSC0();
-#endif
 }
 
 void gpu3dsSwapScreenBuffers()

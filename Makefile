@@ -52,6 +52,8 @@ CFLAGS	:=	-g -w -O3 -mword-relocations -finline-limit=20000 \
 			-fomit-frame-pointer -ffunction-sections \
 			$(ARCH)
 
+EMULATOR_BUILD ?= 1
+
 ifeq ($(EMULATOR_BUILD),1)
 CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DEMULATOR_BUILD
 else
@@ -171,7 +173,6 @@ endif
 #---------------------------------------------------------------------------------
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
-EMULATOR_BUILD ?= 1
 MAKEROM :=
 ifeq ($(UNAME_S), Darwin)
 	# darwin_x86_64/makerom runs under Rosetta on Apple Silicon.
